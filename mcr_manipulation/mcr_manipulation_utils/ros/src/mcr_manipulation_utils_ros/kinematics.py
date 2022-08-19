@@ -13,7 +13,7 @@ import rospy
 from srdfdom.srdf import SRDF
 from std_msgs.msg import Header
 
-import extractors
+import mcr_manipulation_utils_ros.extractors as extractors
 
 
 class Kinematics:
