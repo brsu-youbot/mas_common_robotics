@@ -9,9 +9,9 @@ import rospkg
 
 from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Qt, qWarning, Signal
-from python_qt_binding.QtGui import QWidget, QGridLayout, QPushButton, QApplication
+from python_qt_binding.QtWidgets import QWidget, QGridLayout, QPushButton, QApplication
 
-from node_events_widget import NodeEventsWidget
+from mcr_event_gui.node_events_widget import NodeEventsWidget
 
 
 class NodeWidgetsContainer(QWidget):

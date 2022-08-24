@@ -4,7 +4,6 @@ project(mcr_event_gui)
 find_package(catkin REQUIRED COMPONENTS
   roslint
   rospy
-  rqt_gui_py
 )
 catkin_python_setup()
 catkin_package()
