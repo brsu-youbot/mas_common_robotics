@@ -8,7 +8,7 @@ sampler parameters on a topics.
 
 import math
 import threading
-import Tkinter
+import tkinter as Tkinter
 import rospy
 import mcr_manipulation_msgs.msg
 
