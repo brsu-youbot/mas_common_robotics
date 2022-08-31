@@ -8,7 +8,7 @@ sampler parameters on a topics.
 
 import math
 import threading
-import Tkinter
+import tkinter as Tkinter
 import rospy
 import mcr_manipulation_msgs.msg
 
@@ -222,7 +222,7 @@ def publish_pose():
 def main():
     rospy.init_node('target_pose_mock_up')
 
-    import thread
+    import _thread as thread
     try:
         thread.start_new_thread(create_window, tuple())
 
