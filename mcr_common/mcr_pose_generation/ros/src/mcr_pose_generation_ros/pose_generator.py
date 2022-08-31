@@ -149,7 +149,7 @@ class PoseGenerator:
             ) for height_offset in height_offsets for zenith in zeniths
             for azimuth in azimuths for wrist_roll in wrist_rolls for radial in radials
         ]
-
+        print("Number of poses :", len(transforms))
         for transform in transforms:
             pose = utils.matrix_to_pose(transform)
             poses.poses.append(pose)
