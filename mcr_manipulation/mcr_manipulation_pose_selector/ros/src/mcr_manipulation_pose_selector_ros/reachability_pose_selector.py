@@ -15,7 +15,8 @@ import brics_actuator.msg
 import moveit_commander
 import mcr_manipulation_utils_ros.kinematics as kinematics
 import mcr_manipulation_pose_selector_ros.reachability_pose_selector_utils as pose_selector_utils
-
+import numpy as np
+import tf
 
 class PoseSelector(object):
     """
@@ -59,7 +60,7 @@ class PoseSelector(object):
         # node cycle rate (in hz)
         self.loop_rate = 10.0
 
-    def get_reachable_pose_and_configuration(self, goal_pose_array, linear_offset):
+    def get_reachable_pose_and_configuration(self, goal_pose_array, linear_offset, target):
         """
         Executes the RUNNING state of the state machine.
 
@@ -68,7 +69,7 @@ class PoseSelector(object):
 
         """
         poses = self.group_goal_poses(goal_pose_array)
-        solution = self.select_reachable_pose(poses, linear_offset)
+        solution = self.select_reachable_pose(poses, linear_offset, target)
         if solution is not None:
             pose = solution[0]
             joint_values = solution[1]
@@ -103,7 +104,40 @@ class PoseSelector(object):
                 poses.append(self.goal_pose)
         return poses
 
-    def select_reachable_pose(self, poses, offset):
+    def prioritize_pose(self, poses, target_pose):
+        p_pose_list=[]
+        a_pt = np.array([[target_pose.pose.position.x],
+                [target_pose.pose.position.y],
+                [target_pose.pose.position.z] ])
+
+        q = (target_pose.pose.orientation.x, target_pose.pose.orientation.y, target_pose.pose.orientation.z, target_pose.pose.orientation.w)
+        target_orientation= tf.transformations.euler_from_quaternion(q)
+        a_ang =target_orientation[1]
+        if(target_orientation[1]<0):
+                a_ang = (2*np.pi) - target_orientation[1]
+        dist=[]
+        for i in range(0,len(poses),1):
+            q = (poses[i].pose.orientation.x, poses[i].pose.orientation.y, poses[i].pose.orientation.z, poses[i].pose.orientation.w)
+            pose_orient = tf.transformations.euler_from_quaternion(q)
+            b_ang = pose_orient[1]
+            if(b_ang<0):
+                b_ang = (2*np.pi) - b_ang
+            
+            pitch_diff = abs(a_ang-b_ang)
+            b_pt =np.array( [[poses[i].pose.position.x],
+                    [poses[i].pose.position.y],
+                    [poses[i].pose.position.z]])
+
+            temp =np.linalg.norm(a_pt-b_pt)
+            temp = temp + pitch_diff
+            dist.append(temp)
+        sort_dist = np.sort(dist)
+        for i in range(0, len(dist)):
+            p_pose_list.append(poses[np.where(sort_dist[i]==dist)[0][0]])
+
+        return np.copy(p_pose_list)
+
+    def select_reachable_pose(self, poses, offset, target_pose):
         """
         Given a list of poses, it returns the first pose that returns a
         solution and the joint configuration for that solution.
@@ -119,6 +153,7 @@ class PoseSelector(object):
         :rtype: (geometry_msgs.msg.PoseStamped, list) or None
 
         """
+        poses = self.prioritize_pose(np.copy(poses), target_pose)
         for ii, pose in enumerate(poses):
             rospy.logdebug("IK solver attempt number: {0}".format(ii))
             if offset:
@@ -134,3 +169,8 @@ class PoseSelector(object):
                 return pose, solution
         print("No solution found")
         return None
+
+
+
+
+
