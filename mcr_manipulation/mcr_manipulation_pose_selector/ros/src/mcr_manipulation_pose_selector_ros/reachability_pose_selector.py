@@ -107,30 +107,41 @@ class PoseSelector(object):
     def prioritize_pose(self, poses, target_pose):
         p_pose_list=[]
         a_pt = np.array([[target_pose.pose.position.x],
-                [target_pose.pose.position.y],
-                [target_pose.pose.position.z] ])
+                         [target_pose.pose.position.y],
+                         [target_pose.pose.position.z] ])
 
         q = (target_pose.pose.orientation.x, target_pose.pose.orientation.y, target_pose.pose.orientation.z, target_pose.pose.orientation.w)
         target_orientation= tf.transformations.euler_from_quaternion(q)
-        a_ang =target_orientation[1]
-        if(target_orientation[1]<0):
-                a_ang = (2*np.pi) - target_orientation[1]
+        target_pitch =target_orientation[1]
+        target_yaw = target_orientation[2]
+
+        if(target_pitch<0):
+            target_pitch = (2*np.pi) + target_pitch
+
+        if(target_yaw<0):
+            target_yaw = (2*np.pi) + target_yaw
+
         dist=[]
         for i in range(0,len(poses),1):
             q = (poses[i].pose.orientation.x, poses[i].pose.orientation.y, poses[i].pose.orientation.z, poses[i].pose.orientation.w)
             pose_orient = tf.transformations.euler_from_quaternion(q)
-            b_ang = pose_orient[1]
-            if(b_ang<0):
-                b_ang = (2*np.pi) - b_ang
+            sample_pitch = pose_orient[1]
+            sample_yaw = pose_orient[2]
+            if(sample_pitch<0):
+                sample_pitch = (2*np.pi) + sample_pitch
             
-            pitch_diff = abs(a_ang-b_ang)
-            b_pt =np.array( [[poses[i].pose.position.x],
-                    [poses[i].pose.position.y],
-                    [poses[i].pose.position.z]])
+            if(sample_yaw<0):
+                sample_yaw = (2*np.pi)+ sample_yaw
 
-            temp =np.linalg.norm(a_pt-b_pt)
-            temp = temp + pitch_diff
-            dist.append(temp)
+            #Calculating differnce between angles
+            pitch_diff = np.arctan2( np.sin(target_pitch-sample_pitch), np.cos(target_pitch-sample_pitch))
+            yaw_diff = np.arctan2(np.sin(target_yaw-sample_yaw), np.cos(target_yaw-sample_yaw) )
+
+            b_pt =np.array( [[poses[i].pose.position.x],
+                             [poses[i].pose.position.y],
+                             [poses[i].pose.position.z]])
+
+            dist.append(np.linalg.norm(a_pt-b_pt) + abs(pitch_diff) + abs(yaw_diff))
         sort_dist = np.sort(dist)
         for i in range(0, len(dist)):
             p_pose_list.append(poses[np.where(sort_dist[i]==dist)[0][0]])
@@ -153,6 +164,7 @@ class PoseSelector(object):
         :rtype: (geometry_msgs.msg.PoseStamped, list) or None
 
         """
+        poses.poses.append(target_pose.pose) # Addding target pose for prioritizing, followed by ik solution.
         poses = self.prioritize_pose(np.copy(poses), target_pose)
         for ii, pose in enumerate(poses):
             rospy.logdebug("IK solver attempt number: {0}".format(ii))
