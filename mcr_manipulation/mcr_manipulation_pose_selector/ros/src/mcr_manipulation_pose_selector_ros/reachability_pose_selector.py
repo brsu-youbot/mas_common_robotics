@@ -17,6 +17,7 @@ import mcr_manipulation_utils_ros.kinematics as kinematics
 import mcr_manipulation_pose_selector_ros.reachability_pose_selector_utils as pose_selector_utils
 import numpy as np
 import tf
+import tf.transformations 
 
 class PoseSelector(object):
     """
@@ -102,52 +103,29 @@ class PoseSelector(object):
                 poses = [self.goal_pose]
             else:
                 poses.append(self.goal_pose)
-        return poses
+        return poses  
+
+    def euler_from_quaternion(self,pose: geometry_msgs.msg.PoseStamped  ):
+        # Convert quaternion to Euler angles (roll, pitch, yaw)
+
+        euler = tf.transformations.euler_from_quaternion([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w])
+        return euler[0], euler[1], euler[2]
 
     def prioritize_pose(self, poses, target_pose):
-        p_pose_list=[]
-        a_pt = np.array([[target_pose.pose.position.x],
-                         [target_pose.pose.position.y],
-                         [target_pose.pose.position.z] ])
+        
+        _, reference_pitch, reference_yaw= self.euler_from_quaternion(target_pose)
 
-        q = (target_pose.pose.orientation.x, target_pose.pose.orientation.y, target_pose.pose.orientation.z, target_pose.pose.orientation.w)
-        target_orientation= tf.transformations.euler_from_quaternion(q)
-        target_pitch =target_orientation[1]
-        target_yaw = target_orientation[2]
+        # Calculate the pitch and yaw angles for each pose
+        pose_angles = []
+        for pose in poses:
+            _, pose_pitch, pose_yaw = self.euler_from_quaternion(pose)
+            pose_angles.append((pose_pitch, pose_yaw))
 
-        if(target_pitch<0):
-            target_pitch = (2*np.pi) + target_pitch
-
-        if(target_yaw<0):
-            target_yaw = (2*np.pi) + target_yaw
-
-        dist=[]
-        for i in range(0,len(poses),1):
-            q = (poses[i].pose.orientation.x, poses[i].pose.orientation.y, poses[i].pose.orientation.z, poses[i].pose.orientation.w)
-            pose_orient = tf.transformations.euler_from_quaternion(q)
-            sample_pitch = pose_orient[1]
-            sample_yaw = pose_orient[2]
-            if(sample_pitch<0):
-                sample_pitch = (2*np.pi) + sample_pitch
-            
-            if(sample_yaw<0):
-                sample_yaw = (2*np.pi)+ sample_yaw
-
-            #Calculating differnce between angles
-            pitch_diff = np.arctan2( np.sin(target_pitch-sample_pitch), np.cos(target_pitch-sample_pitch))
-            yaw_diff = np.arctan2(np.sin(target_yaw-sample_yaw), np.cos(target_yaw-sample_yaw) )
-
-            b_pt =np.array( [[poses[i].pose.position.x],
-                             [poses[i].pose.position.y],
-                             [poses[i].pose.position.z]])
-
-            dist.append(np.linalg.norm(a_pt-b_pt) + abs(pitch_diff) + abs(yaw_diff))
-        sort_dist = np.sort(dist)
-        for i in range(0, len(dist)):
-            p_pose_list.append(poses[np.where(sort_dist[i]==dist)[0][0]])
-
-        return np.copy(p_pose_list)
-
+        # Sort the poses based on the difference between their pitch and yaw angles
+        sorted_poses = poses[np.argsort([abs(pose_angles[i][0] - reference_pitch) + abs(pose_angles[i][1] - reference_yaw) for i in range(len(poses))])]
+        sorted_poses = sorted_poses[::-1]
+        return sorted_poses
+        
     def select_reachable_pose(self, poses, offset, target_pose):
         """
         Given a list of poses, it returns the first pose that returns a
@@ -164,10 +142,10 @@ class PoseSelector(object):
         :rtype: (geometry_msgs.msg.PoseStamped, list) or None
 
         """
-        poses.poses.append(target_pose.pose) # Addding target pose for prioritizing, followed by ik solution.
+        poses.append(target_pose) # Addding target pose for prioritizing, followed by ik solution.
         poses = self.prioritize_pose(np.copy(poses), target_pose)
-        for ii, pose in enumerate(poses):
-            rospy.logdebug("IK solver attempt number: {0}".format(ii))
+        for idx, pose in enumerate(poses):
+            
             if offset:
                 solution = self.kinematics.inverse_kinematics(
                     pose_selector_utils.add_linear_offset_to_pose(pose, offset),
@@ -178,7 +156,9 @@ class PoseSelector(object):
                     pose, timeout=self.ik_timeout
                 )
             if solution:
+                rospy.logwarn("IK solved at attempt number: {0}".format(idx))
                 return pose, solution
+            
         print("No solution found")
         return None
 
