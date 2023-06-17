@@ -5,6 +5,8 @@ This module contains functions used by the twist_synchronizer node.
 
 """
 
+def cmp(a, b):
+    return int((a > b)) - int((a < b) )
 
 def calculate_max_time(error, velocity, angular_synchronization=False, zero=0.001):
     """
