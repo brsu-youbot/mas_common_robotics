@@ -377,10 +377,12 @@ class set_named_config(smach.State):
     def event_cb(self, msg):
         self.event = msg.data
 
-    def execute(self, userdata):
+    def execute(self, userdata, updated_named_config=None):
         self.event = None
-
-        self.config_name_pub.publish(self.named_config)
+        if updated_named_config:
+            self.config_name_pub.publish(updated_named_config)
+        else:
+            self.config_name_pub.publish(self.named_config)
         self.event_in_pub.publish("e_start")
 
         timeout = rospy.Duration.from_sec(1.0)
