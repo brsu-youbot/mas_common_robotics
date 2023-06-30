@@ -142,8 +142,8 @@ class PoseSelector(object):
         :rtype: (geometry_msgs.msg.PoseStamped, list) or None
 
         """
-        poses.append(target_pose) # Addding target pose for prioritizing, followed by ik solution.
         poses = self.prioritize_pose(np.copy(poses), target_pose)
+        poses = np.concatenate((np.array([target_pose]), poses), axis=0) # Addding target pose for prioritizing, followed by ik solution.
         for idx, pose in enumerate(poses):
             
             if offset:
@@ -156,7 +156,7 @@ class PoseSelector(object):
                     pose, timeout=self.ik_timeout
                 )
             if solution:
-                rospy.logwarn("IK solved at attempt number: {0}".format(idx))
+                rospy.loginfo(f"IK solved at attempt number: {idx}")
                 return pose, solution
             
         print("No solution found")
